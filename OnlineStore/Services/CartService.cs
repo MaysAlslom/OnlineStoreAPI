@@ -1,86 +1,86 @@
-﻿using Microsoft.EntityFrameworkCore;  // This is required for `FirstOrDefaultAsync` and `Include` methods
+﻿using Microsoft.EntityFrameworkCore;
+using OnlineStoreAPI.Dto;
 using OnlineStoreAPI.Models;
-using System.Linq;  // This is also needed for LINQ methods like `FirstOrDefault`
+using System.Linq;
 using System.Threading.Tasks;
-using OnlineStoreAPI.Services;  // Add this reference in your controller or service file
-using OnlineStoreAPI.Dto;  // Ensure this namespace is included
 
-
-public class CartService : ICartService
+namespace OnlineStoreAPI.Services
 {
-    private readonly AppDbContext _context;
-
-    public CartService(AppDbContext context)
+    public class CartService : ICartService
     {
-        _context = context;
-    }
+        private readonly AppDbContext _context;
 
-    public async Task<Cart> AddToCart(int userId, CartItemDto cartItemDto)
-    {
-        // Retrieve or create cart for the user from the database
-        var cart = await _context.Carts.FirstOrDefaultAsync(c => c.UserId == userId);
-        if (cart == null)
+        public CartService(AppDbContext context)
         {
-            cart = new Cart { UserId = userId };
-            _context.Carts.Add(cart);
+            _context = context;
         }
 
-        var product = await _context.Products.FindAsync(cartItemDto.ProductId);
-        if (product == null || product.StockQuantity < cartItemDto.Quantity)
-            return null;  // Product not available or insufficient stock
-
-        var cartItem = new CartItem
+        public async Task<Cart> AddToCart(int userId, CartItemDto cartItemDto)
         {
-            ProductId = cartItemDto.ProductId,
-            Quantity = cartItemDto.Quantity,
-            CartId = cart.Id
-        };
+            var cart = await _context.Carts.FirstOrDefaultAsync(c => c.UserId == userId);
+            if (cart == null)
+            {
+                cart = new Cart { UserId = userId };
+                _context.Carts.Add(cart);
+            }
 
-        _context.CartItems.Add(cartItem);
-        await _context.SaveChangesAsync();  // Save changes to the database
+            var product = await _context.Products.FindAsync(cartItemDto.ProductId);
+            if (product == null || product.StockQuantity < cartItemDto.Quantity)
+                return null;
 
-        return cart;
-    }
+            var cartItem = new CartItem
+            {
+                ProductId = cartItemDto.ProductId,
+                Quantity = cartItemDto.Quantity,
+                CartId = cart.Id
+            };
 
-    public async Task<Cart> UpdateCart(int userId, int cartItemId, int quantity)
-    {
-        var cart = await _context.Carts.Include(c => c.CartItems).FirstOrDefaultAsync(c => c.UserId == userId);
-        if (cart == null)
-            return null;  // Cart not found
+            _context.CartItems.Add(cartItem);
+            await _context.SaveChangesAsync();
 
-        var cartItem = cart.CartItems.FirstOrDefault(ci => ci.Id == cartItemId);
-        if (cartItem == null)
-            return null;  // Cart item not found
+            return cart;
+        }
 
-        var product = await _context.Products.FindAsync(cartItem.ProductId);
-        if (product == null || quantity > product.StockQuantity)
-            return null;  // Insufficient stock
+        public async Task<Cart> UpdateCart(int userId, int cartItemId, int quantity)
+        {
+            var cartItem = await _context.CartItems
+                .FirstOrDefaultAsync(ci => ci.Cart.UserId == userId && ci.Id == cartItemId);
 
-        cartItem.Quantity = quantity;
-        await _context.SaveChangesAsync();  // Save changes to the database
+            if (cartItem == null || quantity < 1)
+                return null;
 
-        return cart;  // Return the updated cart
-    }
+            var product = await _context.Products.FindAsync(cartItem.ProductId);
+            if (product == null || quantity > product.StockQuantity)
+                return null;
 
-    public async Task<Cart> RemoveFromCart(int userId, int cartItemId)
-    {
-        var cart = await _context.Carts.Include(c => c.CartItems).FirstOrDefaultAsync(c => c.UserId == userId);
-        if (cart == null)
-            return null;  // Cart not found
+            cartItem.Quantity = quantity;
+            await _context.SaveChangesAsync();
 
-        var cartItem = cart.CartItems.FirstOrDefault(ci => ci.Id == cartItemId);
-        if (cartItem == null)
-            return null;  // Cart item not found
+            return await GetCart(userId);  // Return the updated cart
+        }
 
-        _context.CartItems.Remove(cartItem);  // Remove item from the cart
-        await _context.SaveChangesAsync();  // Save changes to the database
 
-        return cart;  // Return the updated cart
-    }
+        public async Task<Cart> RemoveFromCart(int userId, int cartItemId)
+        {
+            var cartItem = await _context.CartItems
+                .FirstOrDefaultAsync(ci => ci.Cart.UserId == userId && ci.Id == cartItemId);
 
-    public async Task<Cart> GetCart(int userId)
-    {
-        var cart = await _context.Carts.Include(c => c.CartItems).ThenInclude(ci => ci.Product).FirstOrDefaultAsync(c => c.UserId == userId);
-        return cart;  // Return the cart for the user
+            if (cartItem == null)
+                return null;
+
+            _context.CartItems.Remove(cartItem);
+            await _context.SaveChangesAsync();
+
+            return await GetCart(userId);  // Return the updated cart
+        }
+
+
+        public async Task<Cart> GetCart(int userId)
+        {
+            var cart = await _context.Carts.Include(c => c.CartItems)
+                                           .ThenInclude(ci => ci.Product)
+                                           .FirstOrDefaultAsync(c => c.UserId == userId);
+            return cart;
+        }
     }
 }

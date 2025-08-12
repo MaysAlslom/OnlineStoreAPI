@@ -1,12 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using OnlineStoreAPI.Services;
 using OnlineStoreAPI.Dto;
 using OnlineStoreAPI.Models;
-
-
-using Microsoft.AspNetCore.Mvc;
 using OnlineStoreAPI.Services;
-using OnlineStoreAPI.Dto; // Make sure this is included for CartItemDto
+using System.Threading.Tasks;
 
 namespace OnlineStoreAPI.Controllers
 {
@@ -14,30 +10,57 @@ namespace OnlineStoreAPI.Controllers
     [ApiController]
     public class CartController : ControllerBase
     {
-        // Declare the private readonly _cartService field
         private readonly ICartService _cartService;
 
-        // Constructor to inject ICartService
         public CartController(ICartService cartService)
         {
             _cartService = cartService;
         }
 
-        // Example endpoint to add an item to the cart
-        [HttpPost("add")]
-        public async Task<ActionResult> AddItemToCart(int userId, CartItemDto cartItemDto)
+        [HttpPost("cart/add")]
+        public async Task<ActionResult> AddItemToCart([FromBody] CartItemDto cartItemDto)
         {
-            // Use _cartService to add item to the cart
-            var result = await _cartService.AddToCart(userId, cartItemDto);
-
+            var result = await _cartService.AddToCart(cartItemDto.UserId, cartItemDto);
             if (result == null)
-            {
-                return BadRequest("Unable to add item to cart.");
-            }
+                return BadRequest("Product not available or quantity exceeds stock.");
 
-            return Ok(result);  // Return the updated cart
+            return Ok(result);
         }
 
-        // You can also add other cart methods like Update, Remove, Get Cart, etc.
+
+
+
+        [HttpPut("cart/update")]
+        public async Task<ActionResult> UpdateCartItem([FromBody] UpdateCartItemDto updateCartItemDto)
+        {
+            var result = await _cartService.UpdateCart(updateCartItemDto.UserId, updateCartItemDto.CartItemId, updateCartItemDto.Quantity);
+            if (result == null)
+                return BadRequest("Invalid cart item ID or insufficient stock.");
+
+            return Ok(result);
+        }
+
+
+        [HttpDelete("cart/remove/{cartItemId}")]
+        public async Task<ActionResult> RemoveItemFromCart(int cartItemId, [FromQuery] int userId)
+        {
+            var result = await _cartService.RemoveFromCart(userId, cartItemId);
+            if (result == null)
+                return NotFound("Cart item not found.");
+
+            return NoContent();
+        }
+
+
+
+        [HttpGet("cart")]
+        public async Task<ActionResult<Cart>> GetCart(int userId)
+        {
+            var cart = await _cartService.GetCart(userId);
+            if (cart == null)
+                return NotFound("Cart not found.");
+
+            return Ok(cart);
+        }
     }
 }

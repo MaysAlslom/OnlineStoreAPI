@@ -1,7 +1,9 @@
-﻿
+﻿using OnlineStoreAPI.Models;
 using OnlineStoreAPI.Dto;
-using OnlineStoreAPI.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace OnlineStoreAPI.Services
 {
@@ -16,20 +18,23 @@ namespace OnlineStoreAPI.Services
 
         public async Task<Orders> PlaceOrder(int userId, CheckoutDto checkoutDto)
         {
-            // Create a new order
+            var user = await _context.Users.FindAsync(userId); // Get user for email
+            if (user == null)
+                return null; // Or handle error as needed
+
             var order = new Orders
             {
-                CustomerName = checkoutDto.CustomerName,
+                UserId = userId,
                 OrderDate = DateTime.UtcNow,
                 ShippingAddress = checkoutDto.ShippingAddress,
                 TotalAmount = checkoutDto.TotalAmount,
-                UserId = userId
+                CustomerEmail = user.Email // Set the CustomerEmail field here
             };
 
             _context.Orders.Add(order);
             await _context.SaveChangesAsync();
 
-            // Save order items
+            // Add order items
             foreach (var item in checkoutDto.OrderItems)
             {
                 var orderItem = new OrderItem
@@ -43,17 +48,40 @@ namespace OnlineStoreAPI.Services
             }
 
             await _context.SaveChangesAsync();
-
-            return order; // Return the created order
+            return order;
         }
 
+
+        // Implementing GetOrdersByUser logic
         public async Task<IEnumerable<Orders>> GetOrdersByUser(int userId)
         {
             return await _context.Orders
+                .Where(o => o.UserId == userId)
                 .Include(o => o.OrderItems)
                 .ThenInclude(oi => oi.Product)
-                .Where(o => o.UserId == userId)
+                .OrderByDescending(o => o.OrderDate)
                 .ToListAsync();
+        }
+
+        // Implementing GetAllOrders for Admin
+        public async Task<IEnumerable<Orders>> GetAllOrders(OrderFilterDto filterDto)
+        {
+            var ordersQuery = _context.Orders
+                .Include(o => o.OrderItems)
+                .ThenInclude(oi => oi.Product)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(filterDto.CustomerEmail))
+            {
+                ordersQuery = ordersQuery.Where(o => o.CustomerEmail.Contains(filterDto.CustomerEmail));
+            }
+
+            if (filterDto.StartDate.HasValue && filterDto.EndDate.HasValue)
+            {
+                ordersQuery = ordersQuery.Where(o => o.OrderDate >= filterDto.StartDate && o.OrderDate <= filterDto.EndDate);
+            }
+
+            return await ordersQuery.OrderByDescending(o => o.OrderDate).ToListAsync();
         }
     }
 }

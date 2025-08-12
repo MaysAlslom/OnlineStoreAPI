@@ -22,6 +22,24 @@ namespace OnlineStoreAPI.Controllers
             _authService = authService;
         }
 
+
+
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterDto registerDto)
+        {
+            if (await _authService.UserExists(registerDto.Email))
+                return BadRequest("Email already exists");
+
+            var user = await _authService.RegisterAsync(registerDto);
+            if (user == null)
+                return BadRequest("Registration failed");
+
+            return Ok(new { Message = "User registered successfully" });
+        }
+
+
+
+
         // POST: api/auth/login
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
@@ -37,6 +55,22 @@ namespace OnlineStoreAPI.Controllers
 
             return Ok(new { Token = token });
         }
+
+
+        [HttpPost("admin/login")]
+        public async Task<IActionResult> AdminLogin([FromBody] LoginDto loginDto)
+        {
+            var user = await _authService.LoginAsync(loginDto); // Pass the LoginDto directly
+
+            if (user == null || !await _authService.UserHasRole(user, "Admin"))
+                return Unauthorized("Invalid credentials or not an admin.");
+
+            var token = await _authService.GenerateJwtToken(user);
+            return Ok(new { Token = token });
+        }
+
+
+
 
         private string GenerateJwtToken(ApplicationUser user)
         {

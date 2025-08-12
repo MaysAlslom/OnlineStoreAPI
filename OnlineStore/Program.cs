@@ -12,6 +12,17 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+
+builder.Services.AddScoped<ProductService>();  // Register ProductService for DI
+
+
+builder.Services.AddScoped<IAuthService, AuthService>();
+
+
+
+
+
 // Register services in the DI container
 
 // Register CartService and OrderService

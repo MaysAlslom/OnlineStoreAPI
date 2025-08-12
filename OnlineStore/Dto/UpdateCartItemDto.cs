@@ -1,9 +1,10 @@
 ﻿namespace OnlineStoreAPI.Dto
 {
-    public class CartItemDto
+    public class UpdateCartItemDto
     {
         public int UserId { get; set; }  // Added UserId
-        public int ProductId { get; set; }
+        public int CartItemId { get; set; }
         public int Quantity { get; set; }
     }
 }
+

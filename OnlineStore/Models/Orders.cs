@@ -10,6 +10,9 @@
         // Change from int to decimal
         public decimal TotalAmount { get; set; }
 
+        public string CustomerEmail { get; set; }  // New field
+
+
         public int UserId { get; set; }
         public Users User { get; set; }
         public List<OrderItem> OrderItems { get; set; }

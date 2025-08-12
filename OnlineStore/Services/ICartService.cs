@@ -10,4 +10,5 @@ namespace OnlineStoreAPI.Services
         Task<Cart> RemoveFromCart(int userId, int cartItemId);
         Task<Cart> GetCart(int userId);
     }
+
 }
